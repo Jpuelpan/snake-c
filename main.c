@@ -2,14 +2,6 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
-SDL_Window *window = NULL;
-SDL_Renderer *renderer = NULL;
-
-SDL_Color BG_COLOR = {0x00, 0x00, 0x00, 0xFF};
-SDL_Color FG_COLOR = {0xFF, 0xFF, 0xFF, 0xFF};
-SDL_Color HEAD_COLOR = {0xC7, 0xC7, 0xC7, 0xFF};
-SDL_Color FOOD_COLOR = {0x9C, 0x17, 0x00, 0xFF};
-
 #define WIN_WIDTH 640
 #define WIN_HEIGHT 480
 #define BLOCK_SIZE 20
@@ -19,21 +11,35 @@ SDL_Color FOOD_COLOR = {0x9C, 0x17, 0x00, 0xFF};
 #define ROWS (WIN_HEIGHT / BLOCK_SIZE)
 #define NUM_BLOCKS (COLS * ROWS)
 
+SDL_Window *window = NULL;
+SDL_Renderer *renderer = NULL;
+
+SDL_Color BG_COLOR = {0x00, 0x00, 0x00, 0xFF};
+SDL_Color FG_COLOR = {0xFF, 0xFF, 0xFF, 0xFF};
+SDL_Color HEAD_COLOR = {0xC7, 0xC7, 0xC7, 0xFF};
+SDL_Color FOOD_COLOR = {0x9C, 0x17, 0x00, 0xFF};
+
 typedef struct {
+  SDL_FPoint pos;
+  int score;
+  bool is_alive;
+} Food;
+
+typedef struct {
+  int score;
   Uint64 last_ticks;
 
   SDL_FPoint snake[NUM_BLOCKS];
-  SDL_FPoint food[20];
+  Food food[10];
   int snake_size;
-  int food_size;
 
   int x_dir;
   int y_dir;
   float speed;
 
   bool is_paused;
-  bool next_step;
   bool is_debug;
+  bool next_step;
 } GameState;
 
 void grow_snake(GameState *game) {
@@ -57,26 +63,45 @@ void grow_snake(GameState *game) {
 }
 
 void add_food(GameState *game) {
-  SDL_FPoint p = {
-      SDL_rand(COLS) * BLOCK_SIZE,
-      SDL_rand(ROWS) * BLOCK_SIZE,
-  };
+  for (int i = 0; i < sizeof(game->food) / sizeof(game->food[0]); i++) {
+    if (!game->food[i].is_alive) {
+      bool overlaps = false;
 
-  game->food[game->food_size] = p;
-  game->food_size++;
-  SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "food %f,%f (%d)", p.x, p.y,
-              game->food_size);
+      SDL_FPoint p = {
+          SDL_rand(COLS) * BLOCK_SIZE,
+          SDL_rand(ROWS) * BLOCK_SIZE,
+      };
+      for (int j = 0; j < game->snake_size; j++) {
+        if (game->snake[j].x == p.x && game->snake[j].y == p.y) {
+          overlaps = true;
+          continue;
+        }
+      }
+
+      game->food[i].pos = p;
+      game->food[i].is_alive = true;
+      game->food[i].score = SDL_rand(40);
+      SDL_Log("added food %f,%f", p.x, p.y);
+      break;
+    }
+  }
+
+  SDL_Log("add food");
 }
 
 void initialize_game(GameState *game) {
   SDL_FPoint head = {WIN_WIDTH / 2.0f, WIN_HEIGHT / 2.0f};
   game->snake[0] = head;
   game->snake_size = 1;
-  game->food_size = 0;
+  game->score = 0;
 
   grow_snake(game);
   grow_snake(game);
   grow_snake(game);
+
+  for (int i = 0; i < sizeof(game->food) / sizeof(game->food[0]); i++) {
+    game->food[i].is_alive = false;
+  }
 
   add_food(game);
 
@@ -139,13 +164,13 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
                          FG_COLOR.a);
   SDL_RenderRect(renderer, NULL);
 
-  render_grid();
+  // render_grid();
 
   // Update snake state
   if (!game->is_paused && delta >= game->speed ||
       (game->is_debug && game->next_step)) {
     SDL_FPoint *head = &game->snake[0];
-    SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "head %f,%f", head->x, head->y);
+    // SDL_Log("head %f,%f (%d)", head->x, head->y, game->snake_size);
 
     float prev_x = head->x;
     float prev_y = head->y;
@@ -178,11 +203,18 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     }
 
     // Check for eaten food
-    for (int i = 0; i < game->food_size; i++) {
-      if (head->x == game->food[i].x && head->y == game->food[i].y) {
-        SDL_Log("Food eaten!\n");
+    for (int i = 0; i < sizeof(game->food) / sizeof(game->food[0]); i++) {
+      if (game->food[i].is_alive && head->x == game->food[i].pos.x &&
+          head->y == game->food[i].pos.y) {
+        game->food[i].is_alive = false;
+        game->score += game->food[i].score;
+        SDL_Log("food eaten - score: %d\n", game->score);
         grow_snake(game);
         add_food(game);
+
+        if (game->snake_size == 10) {
+          game->speed = 0.15;
+        }
       }
     }
 
@@ -193,10 +225,14 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   // Render Food
   SDL_SetRenderDrawColor(renderer, FOOD_COLOR.r, FOOD_COLOR.g, FOOD_COLOR.b,
                          FOOD_COLOR.a);
-  for (int i = 0; i < game->food_size; i++) {
+  for (int i = 0; i < sizeof(game->food) / sizeof(game->food[0]); i++) {
+    if (!game->food[i].is_alive) {
+      continue;
+    }
+
     SDL_FRect r = {
-        game->food[i].x,
-        game->food[i].y,
+        game->food[i].pos.x,
+        game->food[i].pos.y,
         BLOCK_SIZE,
         BLOCK_SIZE,
     };
