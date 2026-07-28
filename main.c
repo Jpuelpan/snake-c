@@ -39,28 +39,27 @@ typedef struct {
 
   bool visible_grid;
   bool is_paused;
-  bool is_debug;
   bool next_step;
 } GameState;
 
 void grow_snake(GameState *game) {
-  SDL_FPoint tail = game->snake[game->snake_size - 1];
-  SDL_FPoint extra;
+  SDL_FPoint *tail = &game->snake[game->snake_size - 1];
+  SDL_FPoint p = {0, 0};
 
   if (game->snake_size > 1) {
-    SDL_FPoint prev = game->snake[game->snake_size - 2];
-    float dx = (prev.x / BLOCK_SIZE) - (tail.x / BLOCK_SIZE);
-    float dy = (prev.y / BLOCK_SIZE) - (tail.y / BLOCK_SIZE);
+    SDL_FPoint *prev = &game->snake[game->snake_size - 2];
+    float dx = (tail->x / BLOCK_SIZE) - (prev->x / BLOCK_SIZE);
+    float dy = (tail->y / BLOCK_SIZE) - (prev->y / BLOCK_SIZE);
 
-    extra.x = tail.x + BLOCK_SIZE * dx;
-    extra.y = tail.y + BLOCK_SIZE * dy;
+    p.x = tail->x + (BLOCK_SIZE * dx);
+    p.y = tail->y + (BLOCK_SIZE * dy);
   } else {
-    extra.x = tail.x - BLOCK_SIZE;
-    extra.y = tail.y;
+    p.x = tail->x + (BLOCK_SIZE * (game->x_dir * -1));
+    p.y = tail->y + (BLOCK_SIZE * (game->y_dir * -1));
   }
 
-  game->snake[game->snake_size] = extra;
-  game->snake_size = game->snake_size + 1;
+  game->snake[game->snake_size] = p;
+  game->snake_size++;
 }
 
 void add_food(GameState *game) {
@@ -105,28 +104,27 @@ void add_food(GameState *game) {
 }
 
 void initialize_game(GameState *game) {
-  SDL_FPoint head = {WIN_WIDTH / 2.0f, WIN_HEIGHT / 2.0f};
-  game->snake[0] = head;
-  game->snake_size = 1;
+  game->x_dir = 1;
+  game->y_dir = 0;
   game->score = 0;
+  game->is_paused = false;
+  game->next_step = false;
+  game->speed = START_SPEED;
   game->visible_grid = false;
 
-  grow_snake(game);
+  game->snake[0].x = WIN_WIDTH / 2.0f;
+  game->snake[0].y = WIN_HEIGHT / 2.0f;
+  game->snake_size = 1;
+
   grow_snake(game);
   grow_snake(game);
 
-  for (int i = 0; i < sizeof(game->food) / sizeof(game->food[0]); i++) {
+  for (int i = 0; i < sizeof(game->food) / sizeof(Food); i++) {
     game->food[i].is_alive = false;
   }
 
   add_food(game);
 
-  game->x_dir = 1;
-  game->y_dir = 0;
-  game->is_paused = false;
-  game->next_step = false;
-  game->is_debug = true;
-  game->speed = START_SPEED;
   game->last_ticks = SDL_GetTicks();
 }
 
@@ -185,8 +183,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   }
 
   // Update snake state
-  if (!game->is_paused && delta >= game->speed ||
-      (game->is_debug && game->next_step)) {
+  if (!game->is_paused && delta >= game->speed || game->next_step) {
 
     SDL_FPoint *head = &game->snake[0];
     float prev_x = head->x;
@@ -353,6 +350,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
     SDL_TouchFingerEvent *e = (SDL_TouchFingerEvent *)event;
     int dx = (int)SDL_roundf(WIN_WIDTH * e->dx);
     int dy = (int)SDL_roundf(WIN_HEIGHT * e->dy);
+
     if (SDL_abs(dx) > SDL_abs(dy)) {
       if (dx > 0) {
         move_right(game);

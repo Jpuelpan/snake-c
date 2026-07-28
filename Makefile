@@ -12,3 +12,6 @@ clean:
 
 run: build
 	./snake
+
+debug: build
+	gdb ./snake
