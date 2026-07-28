@@ -3,7 +3,9 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no" />
+
   <title>Snake | Juan Puelpan - Software Developer</title>
   <style>
     body {
@@ -43,6 +45,15 @@
       display: flex;
       justify-content: center;
     }
+
+    canvas {
+      border: 0px none;
+      background-color: black;
+      padding-right: 0;
+      margin-left: auto;
+      margin-right: auto;
+      display: block;
+    }
   </style>
 </head>
 
@@ -57,7 +68,7 @@
   </header>
 
   <main>
-    <canvas id="canvas"></canvas>
+    <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
   </main>
   <script async type="text/javascript" src="snake.js"></script>
 </body>
