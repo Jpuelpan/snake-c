@@ -298,6 +298,34 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   return SDL_APP_CONTINUE;
 }
 
+void move_up(GameState *game) {
+  if (game->y_dir != -1 && game->x_dir != 0) {
+    game->x_dir = 0;
+    game->y_dir = -1;
+  }
+}
+
+void move_down(GameState *game) {
+  if (game->y_dir != 1 && game->x_dir != 0) {
+    game->x_dir = 0;
+    game->y_dir = 1;
+  }
+}
+
+void move_left(GameState *game) {
+  if (game->y_dir != 0 && game->x_dir != -1) {
+    game->x_dir = -1;
+    game->y_dir = 0;
+  }
+}
+
+void move_right(GameState *game) {
+  if (game->y_dir != 0 && game->x_dir != 1) {
+    game->x_dir = 1;
+    game->y_dir = 0;
+  }
+}
+
 SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
   GameState *game = (GameState *)appstate;
 
@@ -312,22 +340,31 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
       game->visible_grid = !game->visible_grid;
     } else if (event->key.scancode == SDL_SCANCODE_R) {
       initialize_game(game);
-    } else if (event->key.scancode == SDL_SCANCODE_UP && game->y_dir != -1 &&
-               game->x_dir != 0) {
-      game->x_dir = 0;
-      game->y_dir = -1;
-    } else if (event->key.scancode == SDL_SCANCODE_DOWN && game->y_dir != 1 &&
-               game->x_dir != 0) {
-      game->x_dir = 0;
-      game->y_dir = 1;
-    } else if (event->key.scancode == SDL_SCANCODE_LEFT && game->y_dir != 0 &&
-               game->x_dir != -1) {
-      game->x_dir = -1;
-      game->y_dir = 0;
-    } else if (event->key.scancode == SDL_SCANCODE_RIGHT && game->y_dir != 0 &&
-               game->x_dir != 1) {
-      game->x_dir = 1;
-      game->y_dir = 0;
+    } else if (event->key.scancode == SDL_SCANCODE_UP) {
+      move_up(game);
+    } else if (event->key.scancode == SDL_SCANCODE_DOWN) {
+      move_down(game);
+    } else if (event->key.scancode == SDL_SCANCODE_LEFT) {
+      move_left(game);
+    } else if (event->key.scancode == SDL_SCANCODE_RIGHT) {
+      move_right(game);
+    }
+  } else if (event->type == SDL_EVENT_FINGER_MOTION) {
+    SDL_TouchFingerEvent *e = (SDL_TouchFingerEvent *)event;
+    int dx = (int)SDL_roundf(WIN_WIDTH * e->dx);
+    int dy = (int)SDL_roundf(WIN_HEIGHT * e->dy);
+    if (SDL_abs(dx) > SDL_abs(dy)) {
+      if (dx > 0) {
+        move_right(game);
+      } else if (dx < 0) {
+        move_left(game);
+      }
+    } else {
+      if (dy > 0) {
+        move_down(game);
+      } else if (dy < 0) {
+        move_up(game);
+      }
     }
   } else if (event->type == SDL_EVENT_QUIT) {
     return SDL_APP_SUCCESS;

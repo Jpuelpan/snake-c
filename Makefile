@@ -5,8 +5,7 @@ build: main.c
 	$(CC) $(CFLAGS) -g -o snake main.c
 
 build-wasm: main.c
-	mkdir web/
-	emcc --use-port=sdl3 -o web/index.html main.c
+	emcc --use-port=sdl3 -o web/snake.js main.c
 
 clean:
 	rm ./snake
