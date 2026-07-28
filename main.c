@@ -312,20 +312,20 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
       game->visible_grid = !game->visible_grid;
     } else if (event->key.scancode == SDL_SCANCODE_R) {
       initialize_game(game);
-    } else if (event->key.scancode == SDL_SCANCODE_UP ||
-               event->key.scancode == SDL_SCANCODE_K) {
+    } else if (event->key.scancode == SDL_SCANCODE_UP && game->y_dir != -1 &&
+               game->x_dir != 0) {
       game->x_dir = 0;
       game->y_dir = -1;
-    } else if (event->key.scancode == SDL_SCANCODE_DOWN ||
-               event->key.scancode == SDL_SCANCODE_J) {
+    } else if (event->key.scancode == SDL_SCANCODE_DOWN && game->y_dir != 1 &&
+               game->x_dir != 0) {
       game->x_dir = 0;
       game->y_dir = 1;
-    } else if (event->key.scancode == SDL_SCANCODE_LEFT ||
-               event->key.scancode == SDL_SCANCODE_H) {
+    } else if (event->key.scancode == SDL_SCANCODE_LEFT && game->y_dir != 0 &&
+               game->x_dir != -1) {
       game->x_dir = -1;
       game->y_dir = 0;
-    } else if (event->key.scancode == SDL_SCANCODE_RIGHT ||
-               event->key.scancode == SDL_SCANCODE_L) {
+    } else if (event->key.scancode == SDL_SCANCODE_RIGHT && game->y_dir != 0 &&
+               game->x_dir != 1) {
       game->x_dir = 1;
       game->y_dir = 0;
     }
