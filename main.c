@@ -37,6 +37,7 @@ typedef struct {
   int y_dir;
   float speed;
 
+  bool visible_grid;
   bool is_paused;
   bool is_debug;
   bool next_step;
@@ -63,30 +64,44 @@ void grow_snake(GameState *game) {
 }
 
 void add_food(GameState *game) {
-  for (int i = 0; i < sizeof(game->food) / sizeof(game->food[0]); i++) {
-    if (!game->food[i].is_alive) {
-      bool overlaps = false;
+  SDL_FPoint p = {};
 
-      SDL_FPoint p = {
-          SDL_rand(COLS) * BLOCK_SIZE,
-          SDL_rand(ROWS) * BLOCK_SIZE,
-      };
-      for (int j = 0; j < game->snake_size; j++) {
-        if (game->snake[j].x == p.x && game->snake[j].y == p.y) {
-          overlaps = true;
-          continue;
-        }
+  bool overlaps = true;
+  do {
+    p.x = SDL_rand(COLS) * BLOCK_SIZE;
+    p.y = SDL_rand(ROWS) * BLOCK_SIZE;
+
+    // Check if overlaps with other live food
+    bool overlaps_food = false;
+    for (int i = 0; i < sizeof(game->food) / sizeof(Food); i++) {
+      if (game->food[i].is_alive && game->food[i].pos.x == p.x &&
+          game->food[i].pos.y == p.y) {
+        overlaps_food = true;
+        break;
       }
+    }
 
+    // Check if overlaps with snake body
+    bool overlaps_body = false;
+    for (int i = 0; i < game->snake_size; i++) {
+      if (game->snake[i].x == p.x && game->snake[i].y == p.y) {
+        overlaps_body = true;
+        break;
+      }
+    }
+
+    overlaps = overlaps_food || overlaps_body;
+  } while (overlaps);
+
+  for (int i = 0; i < sizeof(game->food) / sizeof(Food); i++) {
+    if (!game->food[i].is_alive) {
       game->food[i].pos = p;
       game->food[i].is_alive = true;
-      game->food[i].score = SDL_rand(40);
-      SDL_Log("added food %f,%f", p.x, p.y);
+      game->food[i].score = (SDL_rand(2) + 1) * 10;
+      SDL_Log("Added food %f,%f", p.x, p.y);
       break;
     }
   }
-
-  SDL_Log("add food");
 }
 
 void initialize_game(GameState *game) {
@@ -94,6 +109,7 @@ void initialize_game(GameState *game) {
   game->snake[0] = head;
   game->snake_size = 1;
   game->score = 0;
+  game->visible_grid = false;
 
   grow_snake(game);
   grow_snake(game);
@@ -164,14 +180,15 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
                          FG_COLOR.a);
   SDL_RenderRect(renderer, NULL);
 
-  // render_grid();
+  if (game->visible_grid) {
+    render_grid();
+  }
 
   // Update snake state
   if (!game->is_paused && delta >= game->speed ||
       (game->is_debug && game->next_step)) {
-    SDL_FPoint *head = &game->snake[0];
-    // SDL_Log("head %f,%f (%d)", head->x, head->y, game->snake_size);
 
+    SDL_FPoint *head = &game->snake[0];
     float prev_x = head->x;
     float prev_y = head->y;
 
@@ -242,25 +259,30 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   }
 
   // Render Snake
-  for (int i = 0; i < game->snake_size; i++) {
+  for (int i = 1; i < game->snake_size; i++) {
     SDL_FRect r = {
         game->snake[i].x,
         game->snake[i].y,
         BLOCK_SIZE,
         BLOCK_SIZE,
     };
-
-    if (i == 0) {
-      SDL_SetRenderDrawColor(renderer, HEAD_COLOR.r, HEAD_COLOR.g, HEAD_COLOR.b,
-                             HEAD_COLOR.a);
-    } else {
-      SDL_SetRenderDrawColor(renderer, FG_COLOR.r, FG_COLOR.g, FG_COLOR.b,
-                             FG_COLOR.a);
-    }
+    SDL_SetRenderDrawColor(renderer, FG_COLOR.r, FG_COLOR.g, FG_COLOR.b,
+                           FG_COLOR.a);
 
     SDL_RenderRect(renderer, &r);
     SDL_RenderFillRect(renderer, &r);
   }
+
+  SDL_FRect r = {
+      game->snake[0].x,
+      game->snake[0].y,
+      BLOCK_SIZE,
+      BLOCK_SIZE,
+  };
+  SDL_SetRenderDrawColor(renderer, HEAD_COLOR.r, HEAD_COLOR.g, HEAD_COLOR.b,
+                         HEAD_COLOR.a);
+  SDL_RenderRect(renderer, &r);
+  SDL_RenderFillRect(renderer, &r);
 
   SDL_RenderPresent(renderer);
   SDL_Delay(1);
@@ -277,6 +299,8 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
       game->is_paused = !game->is_paused;
     } else if (event->key.scancode == SDL_SCANCODE_PERIOD) {
       game->next_step = !game->next_step;
+    } else if (event->key.scancode == SDL_SCANCODE_G) {
+      game->visible_grid = !game->visible_grid;
     } else if (event->key.scancode == SDL_SCANCODE_R) {
       initialize_game(game);
     } else if (event->key.scancode == SDL_SCANCODE_UP ||
