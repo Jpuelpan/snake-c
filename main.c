@@ -219,13 +219,22 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
       prev_y = y;
     }
 
+    // Check snake collision
+    for (int i = 1; i < game->snake_size; i++) {
+      if (head->x == game->snake[i].x && head->y == game->snake[i].y) {
+        SDL_Log("Snake crashed! - Final Score: %d\n", game->score);
+        initialize_game(game);
+        return SDL_APP_CONTINUE;
+      }
+    }
+
     // Check for eaten food
     for (int i = 0; i < sizeof(game->food) / sizeof(game->food[0]); i++) {
       if (game->food[i].is_alive && head->x == game->food[i].pos.x &&
           head->y == game->food[i].pos.y) {
         game->food[i].is_alive = false;
         game->score += game->food[i].score;
-        SDL_Log("food eaten - score: %d\n", game->score);
+        SDL_Log("Food eaten - score: %d\n", game->score);
         grow_snake(game);
         add_food(game);
 
