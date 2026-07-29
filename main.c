@@ -147,6 +147,7 @@ void render_grid() {
 
 void initialize_textures() {
   SDL_Surface *surface = SDL_LoadBMP("numbers.bmp");
+  SDL_SetSurfaceColorKey(surface, true, 0x000000);
   NUMBERS_TEXTURE = SDL_CreateTextureFromSurface(renderer, surface);
 }
 
@@ -159,7 +160,7 @@ void render_score(int score, SDL_FRect *dst) {
     int digit = str_score[i] - 48;
 
     SDL_FRect src = {32 * digit, 0, 32, 64};
-    dst->x -= dst->w;
+    dst->x -= dst->w + 4;
 
     if (!SDL_RenderTexture(renderer, NUMBERS_TEXTURE, &src, dst)) {
       SDL_Log("Failed to render texture: %s", SDL_GetError());
@@ -322,7 +323,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   SDL_RenderFillRect(renderer, &r);
 
   // Render score
-  SDL_FRect dst = {WIN_WIDTH - 8, 10, 8, 16};
+  SDL_FRect dst = {WIN_WIDTH - 8, 10, 16, 32};
   render_score(game->score, &dst);
 
   SDL_RenderPresent(renderer);
