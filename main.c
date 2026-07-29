@@ -1,6 +1,7 @@
 #define SDL_MAIN_USE_CALLBACKS 1
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+#include <stdio.h>
 
 #define WIN_WIDTH 640
 #define WIN_HEIGHT 480
@@ -18,6 +19,8 @@ SDL_Color BG_COLOR = {0x00, 0x00, 0x00, 0xFF};
 SDL_Color FG_COLOR = {0xFF, 0xFF, 0xFF, 0xFF};
 SDL_Color HEAD_COLOR = {0xC7, 0xC7, 0xC7, 0xFF};
 SDL_Color FOOD_COLOR = {0x9C, 0x17, 0x00, 0xFF};
+
+SDL_Texture *NUMBERS_TEXTURE = NULL;
 
 typedef struct {
   SDL_FPoint pos;
@@ -142,6 +145,28 @@ void render_grid() {
                          FG_COLOR.a);
 }
 
+void initialize_textures() {
+  SDL_Surface *surface = SDL_LoadBMP("numbers.bmp");
+  NUMBERS_TEXTURE = SDL_CreateTextureFromSurface(renderer, surface);
+}
+
+void render_score(int score, SDL_FRect *dst) {
+  char str_score[12];
+  sprintf(str_score, "%d", score);
+  int score_len = (int)strlen(str_score);
+
+  for (int i = score_len - 1; i >= 0; i--) {
+    int digit = str_score[i] - 48;
+
+    SDL_FRect src = {32 * digit, 0, 32, 64};
+    dst->x -= dst->w;
+
+    if (!SDL_RenderTexture(renderer, NUMBERS_TEXTURE, &src, dst)) {
+      SDL_Log("Failed to render texture: %s", SDL_GetError());
+    }
+  }
+}
+
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
   SDL_Log("Launching Snake");
 
@@ -165,6 +190,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
   SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
   SDL_SetRenderLogicalPresentation(renderer, WIN_WIDTH, WIN_HEIGHT,
                                    SDL_LOGICAL_PRESENTATION_LETTERBOX);
+  initialize_textures();
 
   *appstate = game;
 
@@ -189,7 +215,6 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 
   // Update snake state
   if (!game->is_paused && delta >= game->speed || game->next_step) {
-
     SDL_FPoint *head = &game->snake[0];
     float prev_x = head->x;
     float prev_y = head->y;
@@ -234,9 +259,9 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     for (int i = 0; i < sizeof(game->food) / sizeof(game->food[0]); i++) {
       if (game->food[i].is_alive && head->x == game->food[i].pos.x &&
           head->y == game->food[i].pos.y) {
+        SDL_Log("Food eaten - score: %d\n", game->score);
         game->food[i].is_alive = false;
         game->score += game->food[i].score;
-        SDL_Log("Food eaten - score: %d\n", game->score);
         grow_snake(game);
         add_food(game);
 
@@ -269,7 +294,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     SDL_RenderFillRect(renderer, &r);
   }
 
-  // Render Snake
+  // Render snake body
   for (int i = 1; i < game->snake_size; i++) {
     SDL_FRect r = {
         game->snake[i].x,
@@ -284,6 +309,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     SDL_RenderFillRect(renderer, &r);
   }
 
+  // Render snake head
   SDL_FRect r = {
       game->snake[0].x,
       game->snake[0].y,
@@ -294,6 +320,10 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
                          HEAD_COLOR.a);
   SDL_RenderRect(renderer, &r);
   SDL_RenderFillRect(renderer, &r);
+
+  // Render score
+  SDL_FRect dst = {WIN_WIDTH - 8, 10, 8, 16};
+  render_score(game->score, &dst);
 
   SDL_RenderPresent(renderer);
   SDL_Delay(1);
