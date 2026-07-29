@@ -107,6 +107,12 @@ void add_food(GameState *game) {
   }
 }
 
+void initialize_textures() {
+  SDL_Surface *surface = SDL_LoadBMP("numbers.bmp");
+  SDL_SetSurfaceColorKey(surface, true, 0x000000);
+  NUMBERS_TEXTURE = SDL_CreateTextureFromSurface(renderer, surface);
+}
+
 void initialize_game(GameState *game) {
   game->x_dir = 1;
   game->y_dir = 0;
@@ -145,12 +151,6 @@ void render_grid() {
                          FG_COLOR.a);
 }
 
-void initialize_textures() {
-  SDL_Surface *surface = SDL_LoadBMP("numbers.bmp");
-  SDL_SetSurfaceColorKey(surface, true, 0x000000);
-  NUMBERS_TEXTURE = SDL_CreateTextureFromSurface(renderer, surface);
-}
-
 void render_score(int score, SDL_FRect *dst) {
   char str_score[12];
   sprintf(str_score, "%d", score);
@@ -165,6 +165,99 @@ void render_score(int score, SDL_FRect *dst) {
     if (!SDL_RenderTexture(renderer, NUMBERS_TEXTURE, &src, dst)) {
       SDL_Log("Failed to render texture: %s", SDL_GetError());
     }
+  }
+}
+
+void update_snake(GameState *game) {
+  SDL_FPoint *head = &game->snake[0];
+  float prev_x = head->x;
+  float prev_y = head->y;
+
+  if (head->x == WIN_WIDTH - BLOCK_SIZE && game->x_dir == 1) {
+    head->x = 0;
+  } else if (head->x < BLOCK_SIZE && game->x_dir == -1) {
+    head->x = WIN_WIDTH - BLOCK_SIZE;
+  } else {
+    head->x += BLOCK_SIZE * game->x_dir;
+  }
+
+  if (head->y == WIN_HEIGHT - BLOCK_SIZE && game->y_dir == 1) {
+    head->y = 0;
+  } else if (head->y < BLOCK_SIZE && game->y_dir == -1) {
+    head->y = WIN_HEIGHT - BLOCK_SIZE;
+  } else {
+    head->y += BLOCK_SIZE * game->y_dir;
+  }
+
+  for (int i = 1; i < game->snake_size; i++) {
+    float x = game->snake[i].x;
+    float y = game->snake[i].y;
+
+    game->snake[i].x = prev_x;
+    game->snake[i].y = prev_y;
+
+    prev_x = x;
+    prev_y = y;
+  }
+
+  game->next_step = false;
+}
+
+void feed_snake(GameState *game) {
+  // TODO: levels logic based on snake size
+  SDL_FPoint *head = &game->snake[0];
+
+  for (int i = 0; i < sizeof(game->food) / sizeof(game->food[0]); i++) {
+    if (game->food[i].is_alive && head->x == game->food[i].pos.x &&
+        head->y == game->food[i].pos.y) {
+      SDL_Log("Food eaten - score: %d\n", game->score);
+      game->food[i].is_alive = false;
+      game->score += game->food[i].score;
+      grow_snake(game);
+      add_food(game);
+
+      if (game->snake_size == 10) {
+        game->speed = 0.15;
+      }
+    }
+  }
+}
+
+bool check_snake_collision(GameState *game) {
+  SDL_FPoint *head = &game->snake[0];
+  for (int i = 1; i < game->snake_size; i++) {
+    if (head->x == game->snake[i].x && head->y == game->snake[i].y) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void move_up(GameState *game) {
+  if (game->y_dir != -1 && game->x_dir != 0) {
+    game->x_dir = 0;
+    game->y_dir = -1;
+  }
+}
+
+void move_down(GameState *game) {
+  if (game->y_dir != 1 && game->x_dir != 0) {
+    game->x_dir = 0;
+    game->y_dir = 1;
+  }
+}
+
+void move_left(GameState *game) {
+  if (game->y_dir != 0 && game->x_dir != -1) {
+    game->x_dir = -1;
+    game->y_dir = 0;
+  }
+}
+
+void move_right(GameState *game) {
+  if (game->y_dir != 0 && game->x_dir != 1) {
+    game->x_dir = 1;
+    game->y_dir = 0;
   }
 }
 
@@ -210,70 +303,22 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
                          FG_COLOR.a);
   SDL_RenderRect(renderer, NULL);
 
-  if (game->visible_grid) {
-    render_grid();
+  if (!game->is_paused && delta >= game->speed || game->next_step) {
+    game->last_ticks = now;
+    update_snake(game);
+    feed_snake(game);
+
+    if (check_snake_collision(game)) {
+      initialize_game(game);
+      SDL_Log("Snake crashed, final Score: %d\n", game->score);
+      // TODO: "You died" screen with final score
+      return SDL_APP_CONTINUE;
+    }
   }
 
-  // Update snake state
-  if (!game->is_paused && delta >= game->speed || game->next_step) {
-    SDL_FPoint *head = &game->snake[0];
-    float prev_x = head->x;
-    float prev_y = head->y;
-
-    if (head->x == WIN_WIDTH - BLOCK_SIZE && game->x_dir == 1) {
-      head->x = 0;
-    } else if (head->x < BLOCK_SIZE && game->x_dir == -1) {
-      head->x = WIN_WIDTH - BLOCK_SIZE;
-    } else {
-      head->x += BLOCK_SIZE * game->x_dir;
-    }
-
-    if (head->y == WIN_HEIGHT - BLOCK_SIZE && game->y_dir == 1) {
-      head->y = 0;
-    } else if (head->y < BLOCK_SIZE && game->y_dir == -1) {
-      head->y = WIN_HEIGHT - BLOCK_SIZE;
-    } else {
-      head->y += BLOCK_SIZE * game->y_dir;
-    }
-
-    for (int i = 1; i < game->snake_size; i++) {
-      float x = game->snake[i].x;
-      float y = game->snake[i].y;
-
-      game->snake[i].x = prev_x;
-      game->snake[i].y = prev_y;
-
-      prev_x = x;
-      prev_y = y;
-    }
-
-    // Check snake collision
-    for (int i = 1; i < game->snake_size; i++) {
-      if (head->x == game->snake[i].x && head->y == game->snake[i].y) {
-        SDL_Log("Snake crashed! - Final Score: %d\n", game->score);
-        initialize_game(game);
-        return SDL_APP_CONTINUE;
-      }
-    }
-
-    // Check for eaten food
-    for (int i = 0; i < sizeof(game->food) / sizeof(game->food[0]); i++) {
-      if (game->food[i].is_alive && head->x == game->food[i].pos.x &&
-          head->y == game->food[i].pos.y) {
-        SDL_Log("Food eaten - score: %d\n", game->score);
-        game->food[i].is_alive = false;
-        game->score += game->food[i].score;
-        grow_snake(game);
-        add_food(game);
-
-        if (game->snake_size == 10) {
-          game->speed = 0.15;
-        }
-      }
-    }
-
-    game->last_ticks = now;
-    game->next_step = false;
+  // Render grid
+  if (game->visible_grid) {
+    render_grid();
   }
 
   // Render Food
@@ -331,34 +376,6 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   return SDL_APP_CONTINUE;
 }
 
-void move_up(GameState *game) {
-  if (game->y_dir != -1 && game->x_dir != 0) {
-    game->x_dir = 0;
-    game->y_dir = -1;
-  }
-}
-
-void move_down(GameState *game) {
-  if (game->y_dir != 1 && game->x_dir != 0) {
-    game->x_dir = 0;
-    game->y_dir = 1;
-  }
-}
-
-void move_left(GameState *game) {
-  if (game->y_dir != 0 && game->x_dir != -1) {
-    game->x_dir = -1;
-    game->y_dir = 0;
-  }
-}
-
-void move_right(GameState *game) {
-  if (game->y_dir != 0 && game->x_dir != 1) {
-    game->x_dir = 1;
-    game->y_dir = 0;
-  }
-}
-
 SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
   GameState *game = (GameState *)appstate;
 
@@ -372,6 +389,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
     } else if (event->key.scancode == SDL_SCANCODE_G) {
       game->visible_grid = !game->visible_grid;
     } else if (event->key.scancode == SDL_SCANCODE_R) {
+      SDL_Log("Restaring game...");
       initialize_game(game);
     } else if (event->key.scancode == SDL_SCANCODE_UP) {
       move_up(game);
