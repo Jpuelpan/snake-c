@@ -36,6 +36,7 @@ typedef struct {
   int x_dir;
   int y_dir;
   float speed;
+  SDL_FPoint finger_down_pos;
 
   bool visible_grid;
   bool is_paused;
@@ -142,7 +143,7 @@ void render_grid() {
 }
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
-  SDL_Log("Launching Cnake");
+  SDL_Log("Launching Snake");
 
   GameState *game = SDL_calloc(1, sizeof(GameState));
   initialize_game(game);
@@ -346,12 +347,16 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
     } else if (event->key.scancode == SDL_SCANCODE_RIGHT) {
       move_right(game);
     }
-  } else if (event->type == SDL_EVENT_FINGER_MOTION) {
+  } else if (event->type == SDL_EVENT_FINGER_DOWN) {
     SDL_TouchFingerEvent *e = (SDL_TouchFingerEvent *)event;
-    int dx = (int)SDL_roundf(WIN_WIDTH * e->dx);
-    int dy = (int)SDL_roundf(WIN_HEIGHT * e->dy);
+    game->finger_down_pos.x = e->x;
+    game->finger_down_pos.y = e->y;
+  } else if (event->type == SDL_EVENT_FINGER_UP) {
+    SDL_TouchFingerEvent *e = (SDL_TouchFingerEvent *)event;
+    float dx = e->x - game->finger_down_pos.x;
+    float dy = e->y - game->finger_down_pos.y;
 
-    if (SDL_abs(dx) > SDL_abs(dy)) {
+    if (SDL_fabsf(dx) > SDL_fabsf(dy)) {
       if (dx > 0) {
         move_right(game);
       } else if (dx < 0) {
