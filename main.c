@@ -148,6 +148,10 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
   GameState *game = SDL_calloc(1, sizeof(GameState));
   initialize_game(game);
 
+#ifdef __EMSCRIPTEN__
+  SDL_SetHint(SDL_HINT_RENDER_VSYNC, "1");
+#endif
+
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     SDL_Log("Failed to initialize SDL: %s", SDL_GetError());
     return SDL_APP_FAILURE;
