@@ -21,6 +21,7 @@ SDL_Color HEAD_COLOR = {0xC7, 0xC7, 0xC7, 0xFF};
 SDL_Color FOOD_COLOR = {0x9C, 0x17, 0x00, 0xFF};
 
 SDL_Texture *NUMBERS_TEXTURE = NULL;
+SDL_Texture *GAME_OVER_TEXTURE = NULL;
 
 typedef struct {
   SDL_FPoint pos;
@@ -43,6 +44,7 @@ typedef struct {
 
   bool visible_grid;
   bool is_paused;
+  bool is_dead;
   bool next_step;
 } GameState;
 
@@ -108,9 +110,12 @@ void add_food(GameState *game) {
 }
 
 void initialize_textures() {
-  SDL_Surface *surface = SDL_LoadBMP("numbers.bmp");
-  SDL_SetSurfaceColorKey(surface, true, 0x000000);
-  NUMBERS_TEXTURE = SDL_CreateTextureFromSurface(renderer, surface);
+  SDL_Surface *numbers_surface = SDL_LoadBMP("assets/numbers.bmp");
+  SDL_SetSurfaceColorKey(numbers_surface, true, 0x000000);
+  NUMBERS_TEXTURE = SDL_CreateTextureFromSurface(renderer, numbers_surface);
+
+  SDL_Surface *you_died_surface = SDL_LoadBMP("assets/game_over.bmp");
+  GAME_OVER_TEXTURE = SDL_CreateTextureFromSurface(renderer, you_died_surface);
 }
 
 void initialize_game(GameState *game) {
@@ -121,6 +126,7 @@ void initialize_game(GameState *game) {
   game->next_step = false;
   game->speed = START_SPEED;
   game->visible_grid = false;
+  game->is_dead = false;
 
   game->snake[0].x = WIN_WIDTH / 2.0f;
   game->snake[0].y = WIN_HEIGHT / 2.0f;
@@ -165,6 +171,23 @@ void render_score(int score, SDL_FRect *dst) {
     if (!SDL_RenderTexture(renderer, NUMBERS_TEXTURE, &src, dst)) {
       SDL_Log("Failed to render texture: %s", SDL_GetError());
     }
+  }
+}
+
+void render_game_over() {
+  float w = 256;
+  float h = 64;
+
+  SDL_FRect src = {0, 0, 256, 64};
+  SDL_FRect dst = {
+      .x = (WIN_WIDTH / 2.0) - (w / 2.0),
+      .y = (WIN_HEIGHT / 2.0) - h,
+      .w = w,
+      .h = h,
+  };
+
+  if (!SDL_RenderTexture(renderer, GAME_OVER_TEXTURE, &src, &dst)) {
+    SDL_Log("Failed to render texture: %s", SDL_GetError());
   }
 }
 
@@ -303,15 +326,14 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
                          FG_COLOR.a);
   SDL_RenderRect(renderer, NULL);
 
-  if (!game->is_paused && delta >= game->speed || game->next_step) {
+  if (!game->is_paused && !game->is_dead && delta >= game->speed ||
+      game->next_step) {
     game->last_ticks = now;
     update_snake(game);
     feed_snake(game);
 
     if (check_snake_collision(game)) {
-      initialize_game(game);
-      SDL_Log("Snake crashed, final Score: %d\n", game->score);
-      // TODO: "You died" screen with final score
+      game->is_dead = true;
       return SDL_APP_CONTINUE;
     }
   }
@@ -371,6 +393,10 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   SDL_FRect dst = {WIN_WIDTH - 8, 10, 16, 32};
   render_score(game->score, &dst);
 
+  if (game->is_dead) {
+    render_game_over();
+  }
+
   SDL_RenderPresent(renderer);
   SDL_Delay(1);
   return SDL_APP_CONTINUE;
@@ -382,6 +408,9 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
   if (event->type == SDL_EVENT_KEY_DOWN) {
     if (event->key.scancode == SDL_SCANCODE_Q) {
       return SDL_APP_SUCCESS;
+    } else if (game->is_dead && event->key.scancode == SDL_SCANCODE_SPACE) {
+      SDL_Log("Restaring game...");
+      initialize_game(game);
     } else if (event->key.scancode == SDL_SCANCODE_SPACE) {
       game->is_paused = !game->is_paused;
     } else if (event->key.scancode == SDL_SCANCODE_PERIOD) {
@@ -401,6 +430,12 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
       move_right(game);
     }
   } else if (event->type == SDL_EVENT_FINGER_DOWN) {
+    if (game->is_dead) {
+      SDL_Log("Restaring game...");
+      initialize_game(game);
+      return SDL_APP_CONTINUE;
+    }
+
     SDL_TouchFingerEvent *e = (SDL_TouchFingerEvent *)event;
     game->finger_down_pos.x = e->x;
     game->finger_down_pos.y = e->y;
