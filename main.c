@@ -69,7 +69,7 @@ void grow_snake(GameState *game) {
 }
 
 void add_food(GameState *game) {
-  SDL_FPoint p = {};
+  SDL_FPoint p = {0.0, 0.0};
 
   bool overlaps = true;
   do {
@@ -78,7 +78,7 @@ void add_food(GameState *game) {
 
     // Check if overlaps with other live food
     bool overlaps_food = false;
-    for (int i = 0; i < sizeof(game->food) / sizeof(Food); i++) {
+    for (int i = 0; i < (int)(sizeof(game->food) / sizeof(Food)); i++) {
       if (game->food[i].is_alive && game->food[i].pos.x == p.x &&
           game->food[i].pos.y == p.y) {
         overlaps_food = true;
@@ -98,7 +98,7 @@ void add_food(GameState *game) {
     overlaps = overlaps_food || overlaps_body;
   } while (overlaps);
 
-  for (int i = 0; i < sizeof(game->food) / sizeof(Food); i++) {
+  for (int i = 0; i < (int)(sizeof(game->food) / sizeof(Food)); i++) {
     if (!game->food[i].is_alive) {
       game->food[i].pos = p;
       game->food[i].is_alive = true;
@@ -135,7 +135,7 @@ void initialize_game(GameState *game) {
   grow_snake(game);
   grow_snake(game);
 
-  for (int i = 0; i < sizeof(game->food) / sizeof(Food); i++) {
+  for (int i = 0; i < (int)(sizeof(game->food) / sizeof(Food)); i++) {
     game->food[i].is_alive = false;
   }
 
@@ -230,7 +230,7 @@ void feed_snake(GameState *game) {
   // TODO: levels logic based on snake size
   SDL_FPoint *head = &game->snake[0];
 
-  for (int i = 0; i < sizeof(game->food) / sizeof(game->food[0]); i++) {
+  for (int i = 0; i < (int)(sizeof(game->food) / sizeof(Food)); i++) {
     if (game->food[i].is_alive && head->x == game->food[i].pos.x &&
         head->y == game->food[i].pos.y) {
       SDL_Log("Food eaten - score: %d\n", game->score);
@@ -326,7 +326,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
                          FG_COLOR.a);
   SDL_RenderRect(renderer, NULL);
 
-  if (!game->is_paused && !game->is_dead && delta >= game->speed ||
+  if ((!game->is_paused && !game->is_dead && delta >= game->speed) ||
       game->next_step) {
     game->last_ticks = now;
     update_snake(game);
@@ -346,7 +346,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   // Render Food
   SDL_SetRenderDrawColor(renderer, FOOD_COLOR.r, FOOD_COLOR.g, FOOD_COLOR.b,
                          FOOD_COLOR.a);
-  for (int i = 0; i < sizeof(game->food) / sizeof(game->food[0]); i++) {
+  for (int i = 0; i < (int)(sizeof(game->food) / sizeof(Food)); i++) {
     if (!game->food[i].is_alive) {
       continue;
     }
@@ -466,5 +466,5 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 
 void SDL_AppQuit(void *appstate, SDL_AppResult result) {
   SDL_free(appstate);
-  SDL_Log("Bye!");
+  SDL_Log("Quiting %d", result);
 }
