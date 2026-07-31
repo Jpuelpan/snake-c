@@ -6,7 +6,7 @@
 #define WIN_WIDTH 640
 #define WIN_HEIGHT 480
 #define BLOCK_SIZE 20
-#define START_SPEED 0.2
+#define START_SPEED 0.18
 
 #define COLS (WIN_WIDTH / BLOCK_SIZE)
 #define ROWS (WIN_HEIGHT / BLOCK_SIZE)
@@ -398,7 +398,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   }
 
   SDL_RenderPresent(renderer);
-  SDL_Delay(1);
+  // SDL_Delay(1);
   return SDL_APP_CONTINUE;
 }
 
@@ -420,13 +420,17 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
     } else if (event->key.scancode == SDL_SCANCODE_R) {
       SDL_Log("Restaring game...");
       initialize_game(game);
-    } else if (event->key.scancode == SDL_SCANCODE_UP) {
+    } else if (event->key.scancode == SDL_SCANCODE_UP ||
+               event->key.scancode == SDL_SCANCODE_W) {
       move_up(game);
-    } else if (event->key.scancode == SDL_SCANCODE_DOWN) {
+    } else if (event->key.scancode == SDL_SCANCODE_DOWN ||
+               event->key.scancode == SDL_SCANCODE_S) {
       move_down(game);
-    } else if (event->key.scancode == SDL_SCANCODE_LEFT) {
+    } else if (event->key.scancode == SDL_SCANCODE_LEFT ||
+               event->key.scancode == SDL_SCANCODE_A) {
       move_left(game);
-    } else if (event->key.scancode == SDL_SCANCODE_RIGHT) {
+    } else if (event->key.scancode == SDL_SCANCODE_RIGHT ||
+               event->key.scancode == SDL_SCANCODE_D) {
       move_right(game);
     }
   } else if (event->type == SDL_EVENT_FINGER_DOWN) {
